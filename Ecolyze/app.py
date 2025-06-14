@@ -16,7 +16,11 @@ DATASET_NAME = "eco_ai_dataset"
 TABLE_NAME = "emissions"
 ML_MODEL_NAME = "emissions_forecast"
 
-bq_client = bigquery.Client(project=PROJECT_ID, credentials=credentials)
+bq_client = bigquery.Client(
+    credentials=credentials,
+    project=PROJECT_ID,
+    client_options={"api_endpoint": "https://bigquery.googleapis.com"}
+)
 
 @st.cache_data
 def load_data():
