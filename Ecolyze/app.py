@@ -8,18 +8,20 @@ import os
 
 MONGO_URI = st.secrets.get("MONGO_URI", os.getenv("MONGO_URI"))
 PROJECT_ID = st.secrets.get("PROJECT_ID", os.getenv("PROJECT_ID"))
-
-gcp_creds_dict = json.loads(st.secrets["GOOGLE_CREDENTIALS"])
-credentials = service_account.Credentials.from_service_account_info(gcp_creds_dict)
-
 DATASET_NAME = "eco_ai_dataset"
 TABLE_NAME = "emissions"
 ML_MODEL_NAME = "emissions_forecast"
 
+gcp_creds_dict = json.loads(st.secrets["GOOGLE_CREDENTIALS"])
+credentials = service_account.Credentials.from_service_account_info(
+    gcp_creds_dict,
+    universe_domain="googleapis.com"  
+)
+
 bq_client = bigquery.Client(
     credentials=credentials,
     project=PROJECT_ID,
-    client_options={"api_endpoint": "https://bigquery.googleapis.com"}
+    client_options={"api_endpoint": "https://bigquery.googleapis.com"}  
 )
 
 @st.cache_data
@@ -35,7 +37,7 @@ def push_to_bigquery():
     dataset_ref = bigquery.DatasetReference(PROJECT_ID, DATASET_NAME)
     try:
         bq_client.get_dataset(dataset_ref)
-    except:
+    except Exception:
         bq_client.create_dataset(bigquery.Dataset(dataset_ref))
     table_ref = dataset_ref.table(TABLE_NAME)
     job = bq_client.load_table_from_dataframe(df, table_ref)
@@ -43,14 +45,14 @@ def push_to_bigquery():
     return df
 
 def query_summary(year):
-    QUERY = f"""
+    QUERY = f'''
         SELECT country, SUM(co2) AS total_co2
         FROM `{PROJECT_ID}.{DATASET_NAME}.{TABLE_NAME}`
         WHERE year = {year}
         GROUP BY country
         ORDER BY total_co2 DESC
         LIMIT 5
-    """
+    '''
     return bq_client.query(QUERY).to_dataframe()
 
 def store_to_mongo(df):
@@ -62,44 +64,44 @@ def store_to_mongo(df):
     return True
 
 def create_ml_model():
-    query = f"""
-    CREATE OR REPLACE MODEL `{PROJECT_ID}.{DATASET_NAME}.{ML_MODEL_NAME}`
-    OPTIONS(model_type='linear_reg', input_label_cols=['co2']) AS
-    SELECT year, population, co2
-    FROM `{PROJECT_ID}.{DATASET_NAME}.{TABLE_NAME}`
-    WHERE country = 'India'
-    """
+    query = f'''
+        CREATE OR REPLACE MODEL `{PROJECT_ID}.{DATASET_NAME}.{ML_MODEL_NAME}`
+        OPTIONS(model_type='linear_reg', input_label_cols=['co2']) AS
+        SELECT year, population, co2
+        FROM `{PROJECT_ID}.{DATASET_NAME}.{TABLE_NAME}`
+        WHERE country = 'India'
+    '''
     bq_client.query(query).result()
 
 def predict_co2():
-    query = f"""
-    SELECT year, predicted_co2
-    FROM ML.PREDICT(MODEL `{PROJECT_ID}.{DATASET_NAME}.{ML_MODEL_NAME}`,
-        (SELECT year, population FROM `{PROJECT_ID}.{DATASET_NAME}.{TABLE_NAME}` 
-         WHERE country='India' AND year >= 2015))
-    """
+    query = f'''
+        SELECT year, predicted_co2
+        FROM ML.PREDICT(MODEL `{PROJECT_ID}.{DATASET_NAME}.{ML_MODEL_NAME}`,
+            (SELECT year, population FROM `{PROJECT_ID}.{DATASET_NAME}.{TABLE_NAME}` 
+             WHERE country='India' AND year >= 2015))
+    '''
     return bq_client.query(query).to_dataframe()
 
 # UI
-st.title("Ecolyze 🌍")
-st.write("Analyze CO₂ emissions with BigQuery ML + MongoDB + Streamlit")
+st.title("Ecolyze 🌿")
+st.write("Analyze CO₂ emissions with BigQuery ML, MongoDB Atlas & Streamlit")
 
 year = st.selectbox("Choose a year:", list(range(2000, 2023)))
 
 if st.button("Run Analysis"):
-    with st.spinner("Processing..."):
-        df = push_to_bigquery()
-        summary = query_summary(year)
-        store_to_mongo(summary)
+    with st.spinner("Loading and analyzing data..."):
+        push_to_bigquery()
+        summary_df = query_summary(year)
+        store_to_mongo(summary_df)
         create_ml_model()
-        prediction = predict_co2()
+        prediction_df = predict_co2()
 
-        st.success("All steps completed!")
-        st.subheader(f"Top 5 CO₂ Emitters in {year}")
-        st.dataframe(summary)
-        st.bar_chart(summary.set_index("country"))
+        st.success("Data processed and stored successfully!")
+        st.subheader(f"Top 5 CO₂ Emitting Countries in {year}")
+        st.dataframe(summary_df)
+        st.bar_chart(summary_df.set_index("country"))
 
         st.subheader("Predicted CO₂ for India (from 2015)")
-        st.line_chart(prediction.set_index("year"))
+        st.line_chart(prediction_df.set_index("year"))
 
-st.info("Built for AI in Action | Ecolyze")
+st.info("Built with Google BigQuery + MongoDB Atlas + Streamlit | Project: Ecolyze")
