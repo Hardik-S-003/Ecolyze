@@ -3,3 +3,4 @@ pandas
 pymongo
 dnspython
 google-cloud-bigquery
+db-dtypes>=1.0.0
