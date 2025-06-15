@@ -25,6 +25,7 @@ bq_client = bigquery.Client(
 
 @st.cache_data
 def load_data():
+    # CO2 Emission Dataset raw file link from github 
     df = pd.read_csv("https://raw.githubusercontent.com/owid/co2-data/master/owid-co2-data.csv")
     df = df[["country", "year", "co2", "population"]].dropna()
     df = df[df["year"] >= 2000].reset_index(drop=True)
@@ -82,7 +83,7 @@ def predict_co2():
     return bq_client.query(query).to_dataframe()
 
 # UI
-st.title("Ecolyze 🌿")
+st.title("Ecolyze")
 st.write("Analyze CO₂ emissions with BigQuery ML, MongoDB Atlas & Streamlit")
 
 year = st.selectbox("Choose a year:", list(range(2000, 2023)))
