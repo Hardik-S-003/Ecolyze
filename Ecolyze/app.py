@@ -14,7 +14,7 @@ ML_MODEL_NAME = "emissions_forecast"
 
 gcp_creds_dict = json.loads(st.secrets["GOOGLE_CREDENTIALS"])
 credentials = service_account.Credentials.from_service_account_info(
-    gcp_creds_dict,
+    gcp_creds_dict
 )
 
 bq_client = bigquery.Client(
